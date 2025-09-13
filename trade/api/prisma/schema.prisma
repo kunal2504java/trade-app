@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id                       String        @id @default(cuid())
+  full_name                String
+  email                    String        @unique
+  password_hash            String?
+  referral_code            String        @unique
+  created_at               DateTime      @default(now())
+  registrationDate         DateTime      @default(now())
+  googleId                 String?       @unique
+  role                     UserRole      @default(USER)
+  sponsor_id               String?
+  sponsor                  User?         @relation("SponsorReferrals", fields: [sponsor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  referrals                User[]        @relation("SponsorReferrals")
+  position_in_sponsor_tree String?
+  investments              Investment[]
+  transactions             Transaction[]
+  wallet                   Wallet?
+  userRewards              UserReward[]
+}
+
+model Investment {
+  id                  String   @id @default(cuid())
+  amount              Float
+  package_name        String
+  monthly_profit_rate Float
+  status              String   @default("active")
+  start_date          DateTime
+  unlock_date         DateTime
+  user_id             String
+  user                User     @relation(fields: [user_id], references: [id])
+}
+
+model Transaction {
+  id            String            @id @default(cuid())
+  amount        Float
+  type          String
+  income_source String
+  description   String?
+  timestamp     DateTime          @default(now())
+  status        TransactionStatus @default(PENDING)
+
+  // --- NEW FIELDS FOR CRYPTO DEPOSITS ---
+  chain             String? // e.g., "Bitcoin", "Ethereum (ERC20)"
+  deposit_address   String? // The company address user sent funds to
+  transaction_hash  String? // Optional: The user's transaction hash/id
+
+  user_id String
+  user    User   @relation(fields: [user_id], references: [id])
+}
+
+model Wallet {
+  id      String @id @default(cuid())
+  balance Float  @default(0)
+  user_id String @unique
+  user    User   @relation(fields: [user_id], references: [id])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model Reward {
+  id              Int          @id @default(autoincrement())
+  rankToAchieve   Int
+  timeframeInDays Int
+  bonusAmount     Float
+  rewardName      String
+  userRewards     UserReward[]
+}
+
+model UserReward {
+  id           String    @id @default(cuid())
+  status       String    @default("in_progress")
+  achievedDate DateTime?
+  user_id      String
+  user         User      @relation(fields: [user_id], references: [id])
+  reward_id    Int
+  reward       Reward    @relation(fields: [reward_id], references: [id])
+}
